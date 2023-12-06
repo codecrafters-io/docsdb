@@ -1,0 +1,27 @@
+{
+  "name": "docsdb",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/got": "^9.6.12",
+    "@types/jest": "^29.5.10",
+    "@types/node": "^20.10.1",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "got": "^14.0.0",
+    "node-html-parser": "^6.1.11",
+    "p-queue": "^6.6.2"
+  }
+}
