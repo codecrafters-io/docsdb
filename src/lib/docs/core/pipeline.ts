@@ -25,6 +25,6 @@ export class Pipeline {
         });
 
         
-        fs.writeFileSync('sample.json', JSON.stringify({ ctx :this.ctx }));
+        fs.writeFileSync('sample.json', JSON.stringify({ ctx :this.ctx }, null, 2));
     }
 }

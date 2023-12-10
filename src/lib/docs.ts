@@ -1,4 +1,6 @@
+import Python from './docs/scrapers/python';
 import Rust from './docs/scrapers/rust'
+import Go from './docs/scrapers/go'
 // import * as Bundler from 'bundler/setup';
 // Bundler.require('default', 'docs');
 
@@ -60,17 +62,14 @@ export class SetupError extends Error { }
 
 
 export async function find(name: string, version?: string) {
-    return new Rust()
-
-    // FIXME: figure out how to do versions  
-    // if (version && doc.versions) {
-    //     doc = doc.versions.find((klass: any) => klass.version === version || klass.version_slug === version);
-    //     if (!doc) throw new DocNotFound(`could not find version "${version}" for doc "${name}"`);
-    // } else {
-    //     doc = doc.versions[0];
-    // }
-
-    // return doc;
+    switch(name) {
+        case 'python':
+            return new Python();
+        case 'rust':
+            return new Rust();
+        case 'go':
+            return new Go();
+    }
 }
 
 // export function find_by_slug(slug: string, version: string = null) {

@@ -12,13 +12,16 @@ import { Ctx } from "../filters/core/filters";
 import { Doc } from "./doc";
 import { Parser } from "./parser";
 import { FilterImpl, Pipeline } from "./pipeline";
-import PQueue from "p-queue";
+import { UrlScraperOptions } from "./scrapers/url_scraper";
+import fs from "fs-extra";
+import { join } from "path";
+import ScraperQueue from "./scraper_queue";
 
 export abstract class Scraper extends Doc {
+  abstract lang: string;
   abstract baseUrl: string;
-  abstract rootPath: string;
-  // static initial_paths: string[];
-  // static options: any;
+  abstract initial_paths: string[];
+  abstract options: UrlScraperOptions;
   // static html_filters: FilterStack;
   // static text_filters: FilterStack;
   // static stubs: any;
@@ -73,45 +76,45 @@ export abstract class Scraper extends Doc {
   // }
 
   async buildPage(path: string) {
-    console.log(this.url_for(path));
-    let response = await this.request_one(this.url_for(path));
-    let result = this.handleResponse(path, response);
+    const url = this.url_for(path);
+    let response = await this.request_one(url);
+    let result = await this.handleResponse(url, response);
     if (result) {
       return result;
     }
   }
-  
+
   async delay(d: number) {
-    return new Promise(res => 
-    setTimeout(res, d));
+    return new Promise((res) => setTimeout(res, d));
   }
 
   async buildPages() {
-    const queue = new PQueue({
-      concurrency: 2,
-      // interval: 1000,
-      // intervalCap: 2,
-    });
-    const queueSet: Set<string> = new Set();
-
-    const runPage = async (path) => {
-      console.log("Processing url: ", path);
-      await queueSet.add(this.rootPath);
-      await queue.add(async () => {
-        let response = await this.request_one(path);
-        let ctx = this.handleResponse(path, response);
-        ctx.internalUrls.forEach(async (url) => {
-          console.log("Adding url to queue: ", url)
-          if (!queueSet.has(url)) {
-            await runPage(url);
-          }
-        });
-        console.log("Done processing url: ", path);
-      }, {});
+    const runPage = async (path: string) => {
+      let response;
+      try {
+        response = await this.request_one(path);
+      } catch (e) {
+        console.error("failed to fetch url ", path);
+        console.error(e);
+        return;
+      }
+      let ctx = await this.handleResponse(path, response);
+      ctx.internalUrls.forEach(async (url) => {
+        if (
+          url.startsWith(this.baseUrl) &&
+          this.options.onlyPatterns.some((pat) => url.match(pat)) &&
+          this.options.skipPatterns.every((pat) => !url.match(pat))
+        ) {
+          await queue.add(url);
+        }
+      });
     };
 
-    await queue.add(() => runPage(this.url_for(this.rootPath)));
-    await this.delay(2000);
+    const queue = new ScraperQueue(runPage);
+
+    this.initial_paths.forEach(async (path) => {
+      await queue.add(this.url_for(path));
+    });
 
     await queue.onIdle();
   }
@@ -133,16 +136,6 @@ export abstract class Scraper extends Doc {
   //     return next_urls;
   //   });
   // }
-
-  root_url() {
-    return this.rootPath
-      ? new URL(`${this.baseUrl.toString()}/${this.root_path()}`)
-      : this.baseUrl.normalize();
-  }
-
-  root_path() {
-    return this.rootPath;
-  }
 
   // root_path?() {
   //   return this.root_path() && this.root_path() !== '/';
@@ -206,20 +199,35 @@ export abstract class Scraper extends Doc {
 
   url_for(path: string) {
     if (path === "" || path === "/") {
-      return this.root_url().toString();
+      return this.baseUrl.toString();
     } else {
       return `${this.baseUrl.toString()}${path}`;
     }
   }
 
-  private handleResponse(path: string, response: any): Ctx {
+  async handleResponse(path: string, response: any): Promise<Ctx> {
     return this.processResponse(path, response);
   }
 
-  private processResponse(path: string, response: any) {
+  async processResponse(path: string, response: any) {
     let parser = new Parser(response);
-    const ctx: Ctx = { title: parser.title, url: this.url_for(path) };
+    const ctx: Ctx = { title: parser.title, url: path };
     new Pipeline(parser.document, this.getFilters(), ctx).process();
+
+    const htmlPath = path.endsWith("/")
+      ? `${path}index.html`
+      : !path.endsWith(".html")
+      ? `${path}.html`
+      : path;
+
+    await writeFile(this.lang, htmlPath, parser.document.toString());
+
+    await writeFile(
+      this.lang,
+      htmlPath.replace(".html", ".json"),
+      JSON.stringify(ctx, null, 2)
+    );
+
     return ctx;
   }
 
@@ -245,3 +253,11 @@ export abstract class Scraper extends Doc {
   //   return {};
   // }
 }
+
+const writeFile = async (docName: string, path: string, content: string) => {
+  let filePath = new URL(path).pathname;
+  filePath = join(`./public/docs/${docName}/`, filePath);
+
+  await fs.ensureFile(filePath);
+  await fs.writeFile(filePath, content);
+};

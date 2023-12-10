@@ -4,10 +4,7 @@ import { Scraper } from '../scraper';
 
 export interface UrlScraperOptions {
   onlyPatterns: RegExp[]
-  skip: string[],
   skipPatterns: RegExp[],
-  fixUrls: (url: string) => string,
-  attribution: string,
 }
 
 export abstract class UrlScraper extends Scraper {

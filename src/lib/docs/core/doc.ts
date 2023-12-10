@@ -215,7 +215,6 @@ export abstract class Doc {
 
     // opts.logger.debug(`Fetching ${url}`);
     const response = await axios.get(url, { timeout: 15000, ...opts })
-    // console.log(response)
     return response.data;
   }
 

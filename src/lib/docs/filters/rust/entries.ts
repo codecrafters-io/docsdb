@@ -1,5 +1,6 @@
 import assert from "assert";
 import { EntriesFilter, Entry } from "../core/filters";
+import { HTMLElement } from "node-html-parser";
 
 interface AssocType {
   name: string;
@@ -36,54 +37,56 @@ export class RustEntriesFilter extends EntriesFilter {
   }
 
   getScipSymbol(path: string): string {
-    console.log(path);
-    const scheme = "rust-analyzer";
-    const parts = path.replace(".html", "").split("/").slice(1);
-    const packageName = parts[0];
-    if (!["core", "std"].includes(packageName)) {return ""}
-    const pkg = `cargo ${packageName} https://github.com/rust-lang/rust/library/${packageName}`;
-
-    const types = this.parseTypes(parts);
-    let descs = "";
-    // console.log(types)
-    types.forEach(type => {
-      if (type.kind === undefined) {
-        descs += `${type.name}/`;
-      } else if (["struct","enum","trait"].includes(type.kind)) {
-        descs += `${type.name}#`;
-      } else {
-        throw Error(`unkonwn kind ${type.kind}`);
+    try {
+      const scheme = "rust-analyzer";
+      const parts = path.replace(".html", "").split("/").slice(1);
+      const packageName = parts[0];
+      if (!["core", "std"].includes(packageName)) {
+        return "";
       }
+      const pkg = `cargo ${packageName} https://github.com/rust-lang/rust/library/${packageName}`;
 
-      if (["tymethod","method"].includes(type.typ)) {
-        descs += `${type.typIdentifier}().`;
-      } else {
-        if (type.typ !== undefined) throw Error(`unknown typ ${type.typ}`)
-      }
-    })
+      const types = this.parseTypes(parts);
+      let descs = "";
+      types.forEach((type) => {
+        if (type.kind === undefined) {
+          descs += `${type.name}/`;
+        } else if (["struct", "enum", "trait", "union", "type"].includes(type.kind)) {
+          descs += `${type.name}#`;
+        } else {
+          throw Error(`unkonwn kind ${type.kind}`);
+        }
 
-    return `${scheme} ${pkg} ${descs}`;
+        if (["tymethod", "method"].includes(type.typ)) {
+          descs += `${type.typIdentifier}().`;
+        } else {
+          if (type.typ !== undefined) throw Error(`unknown typ ${type.typ}`);
+        }
+      });
+
+      return `${scheme} ${pkg} ${descs}`;
+    } catch (e) {
+      console.log(path);
+      throw e;
+    }
   }
 
   getEntries(): Entry[] {
     const entries: Entry[] = [];
+
     let name = this.doc
       .querySelector("main h1")
-      .innerText.replace(/^.+\s/, "")
+      ?.innerText.replace(/^.+\s/, "")
       .replace("⎘", "");
     let path = new URL(this.currentUrl()).pathname;
-    const itemDecl = this.doc.querySelector("pre.item-decl")?.outerHTML || "";
-    const topDoc = this.doc.querySelector("details.top-doc").outerHTML;
+    const itemDecl = this.doc.querySelector("pre.item-decl");
+    const topDoc = this.doc.querySelector("details.top-doc");
 
-    entries.push({
-      name: name,
-      html: itemDecl + topDoc,
-      path: path,
-      scipSymbol: this.getScipSymbol(path),
-    });
+    if (!name || !itemDecl || !topDoc) {
+      return [];
+    }
 
     this.doc.querySelectorAll(".method-toggle").forEach((methodNode) => {
-      // console.log("found method");
       const nameNode = methodNode.querySelector("a.fn");
       const fnName = name + "::" + nameNode.innerText;
       let methodPath = new URL(

@@ -1,4 +1,5 @@
 import { HTMLElement, parse } from 'node-html-parser';
+import url from 'url';
 
 export interface Ctx {
     url: string,
@@ -94,7 +95,6 @@ export class NormalizeUrlsFilter extends Filter {
     }
 
     normalizeUrl(str: string) {
-        // console.log(str, this.currentUrl())
         const url = new URL(str, this.currentUrl())
         return url.toString();
     }
@@ -115,8 +115,14 @@ export class InternalUrls extends Filter {
 
         this.doc.querySelectorAll('a').forEach((node) => {
             const href = node.getAttribute('href')!;
-            const url = new URL(href, this.currentUrl());
+            try {
+
+            let url = new URL(href);
             urlsSet.add(url.origin + url.pathname);
+            } catch(e) {
+                console.error(e)
+                console.error(href)
+            }
         })
 
         this.ctx.internalUrls = Array.from(urlsSet);

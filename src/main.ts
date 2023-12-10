@@ -5,5 +5,5 @@ const docsCli = new DocsCLI();
 // docsCli.check('rust')
 
 // docsCli.page("rust", "std/vec/struct.Vec.html");
-docsCli.page("rust", "std/vec/struct.Vec.html");
-// docsCli.generate_doc("rust", {});
+docsCli.page("go", "/io@go1.21.5")
+// docsCli.generate_doc("go", {});
